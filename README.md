@@ -1,34 +1,69 @@
 # Windows Cache Cleaner
 
-Hey there! Welcome to my Windows Cache Cleaner repository. 
+Hey there! Welcome to my Windows Cache Cleaner repository.
+This script started as a simple batch file and has since been rewritten in PowerShell to be more reliable, more detailed, and more useful in professional environments. It automatically requests Administrator rights, cleans system junk, logs everything it does, and even supports a dry run mode so you can see what would be deleted before committing.
 
-I wrote this simple batch script because I was tired of manually digging through hidden Windows folders to clean out temporary junk files. This script automates the whole process, asks for Admin rights automatically, cleans everything quietly, and tells you when it's done. 
+## What does it clean?
 
-## What does this script actually clean?
+| Target | Path |
+|---|---|
+| User Temp | `%TEMP%` |
+| Windows Temp | `%windir%\Temp` |
+| Prefetch | `%windir%\Prefetch` |
+| Windows Update Cache | `%windir%\SoftwareDistribution\Download` |
+| Thumbnail Cache | `%LOCALAPPDATA%\Microsoft\Windows\Explorer\thumbcache_*.db` |
+| CBS Logs | `%windir%\Logs\CBS` |
+| Recycle Bin | All drives |
+| DNS Cache | Flushed via `Clear-DnsClientCache` |
 
-If you are used to pressing `Windows + R` (the Run dialog) to manually clean your PC, you'll recognize these steps. Here is exactly what the script does for you in the background:
+### Why these folders?
 
-* **User Temp Folder (`%temp%`)**
-    If you press `Win + R` and type `%temp%`, you'll find where your daily applications dump their temporary data. Apps often "forget" to delete these files when you close them. This script wipes them out.
-
-* **Windows Temp Folder (`temp`)**
-    If you press `Win + R` and type `temp`, it opens the system's temporary folder (`C:\Windows\Temp`). Windows uses this for system-level tasks and installations. We clean this up too.
-
-* **Prefetch Folder (`prefetch`)**
-    By typing `prefetch` in the `Win + R` window, you access a folder where Windows stores data to launch your applications faster. Over time, it gets cluttered with traces of uninstalled or rarely used apps. Flushing it out gives your system a fresh start.
-
-* **Windows Update Cache (`C:\Windows\SoftwareDistribution\Download`)**
-    Whenever Windows downloads an update, it stores the installation files here. Once the update is installed, these files just sit there eating up gigabytes of space. The script safely empties this folder.
-
-* **DNS Resolver Cache**
-    *(Not a folder, but a background process)*. The script runs `ipconfig /flushdns` to clear your old internet connection records. It's great for fixing weird network glitches and loading errors in your browser.
+- **User Temp & Windows Temp** — Applications dump temporary files here and rarely clean up after themselves. Safe to wipe entirely.
+- **Prefetch** — Windows stores launch data here to speed up applications. Over time it accumulates traces of uninstalled or rarely used apps. Clearing it gives the folder a fresh start; Windows rebuilds it automatically on next launches.
+- **Windows Update Cache** — Installation files left over after updates are applied. They serve no purpose once the update is installed.
+- **Thumbnail Cache** — Windows stores image previews here. It rebuilds itself automatically, so clearing it is always safe.
+- **CBS Logs** — Windows Update and component servicing logs. They can grow to several hundred MB over time.
+- **Recycle Bin** — Often overlooked, can hold gigabytes of forgotten files.
+- **DNS Cache** — Clears outdated DNS records, useful for resolving network glitches.
 
 ## How to use it
 
-1. Download the `WindowsCacheCleaner.bat` file.
-2. Double-click it!
-3. Windows will ask if you want to run it as Administrator (it needs these rights to access system folders like Prefetch). Click **Yes**.
-4. Watch it clean everything in seconds, and press any key to close the window when it's done.
+### Simple (recommended)
+
+1. Download both `WindowsCacheCleaner.ps1` and `Start.bat`
+2. Keep them in the same folder
+3. Double-click `Start.bat`
+4. Accept the UAC prompt (Administrator rights are required to access system folders)
+5. Press Enter when done
+
+### Dry Run mode
+
+Want to see what would be deleted without actually deleting anything?
+
+Via the launcher:
+
+    Start.bat -DryRun
+
+Or directly in an elevated PowerShell session:
+
+    .\WindowsCacheCleaner.ps1 -DryRun
+
+### Direct PowerShell
+
+If you already have an elevated PowerShell session:
+
+    .\WindowsCacheCleaner.ps1
+
+## Logs
+
+Every run automatically generates a timestamped log file in a `Logs\` folder next to the script:
+
+    Logs\CacheCleaner_2026-05-06_15-45-35.log
+
+Useful if you want to keep track of how much space was freed over time or deploy the script across multiple machines.
 
 ---
-*Note: Some files might be in use by Windows while the script is running and won't be deleted. This is totally normal and safe!*
+
+*Note: Files locked by Windows at the time of execution will be silently skipped. This is normal and safe.*
+
+*Made by [ExAzZe](https://github.com/ExAzZe)*
