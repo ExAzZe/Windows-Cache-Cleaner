@@ -5,7 +5,9 @@ param(
 )
 
 $Host.UI.RawUI.WindowTitle = "Windows Cache Cleaner"
-$LogDir     = "$PSScriptRoot\Logs"
+
+$ScriptDir  = if ($PSScriptRoot) { $PSScriptRoot } else { $PWD.Path }
+$LogDir     = "$ScriptDir\Logs"
 $LogFile    = "$LogDir\CacheCleaner_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
 $TotalFreed = [long]0
 
@@ -15,9 +17,14 @@ if (-not (Test-Path $LogDir)) {
 
 function Write-Log {
     param([string]$Message, [string]$Color = "White")
-    $line = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $Message"
-    Write-Host $line -ForegroundColor $Color
-    Add-Content -Path $LogFile -Value $line
+    if ([string]::IsNullOrEmpty($Message)) {
+        Write-Host ""
+        Add-Content -Path $LogFile -Value ""
+    } else {
+        $line = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $Message"
+        Write-Host $line -ForegroundColor $Color
+        Add-Content -Path $LogFile -Value $line
+    }
 }
 
 function Get-FolderSizeBytes {
@@ -41,9 +48,11 @@ function Clear-Folder {
         return
     }
 
-    $files      = Get-ChildItem -Path $Path -Filter $Filter -Recurse -Force -File -ErrorAction SilentlyContinue
-    $fileCount  = $files.Count
-    $sizeBefore = [long]($files | Measure-Object -Property Length -Sum).Sum
+    $files     = Get-ChildItem -Path $Path -Filter $Filter -Recurse -Force -File -ErrorAction SilentlyContinue
+    $fileCount = $files.Count
+
+    $sum        = ($files | Measure-Object -Property Length -Sum).Sum
+    $sizeBefore = if ($null -eq $sum) { [long]0 } else { [long]$sum }
 
     if ($DryRun) {
         Write-Log " - [DRYRUN] $Label : $fileCount files (~$([math]::Round($sizeBefore / 1MB, 2)) MB)" "Cyan"
@@ -92,9 +101,19 @@ Write-Log "[*] Cleaning Recycle Bin..."
 if ($DryRun) {
     Write-Log " - [DRYRUN] Recycle Bin : Would be emptied" "Cyan"
 } else {
+    $rbSize = [long]0
+    Get-PSDrive -PSProvider FileSystem | ForEach-Object {
+        $rbPath = "$($_.Root)`$Recycle.Bin"
+        if (Test-Path $rbPath) {
+            $s = (Get-ChildItem -Path $rbPath -Recurse -Force -File -ErrorAction SilentlyContinue |
+                  Measure-Object -Property Length -Sum).Sum
+            if ($null -ne $s) { $rbSize += [long]$s }
+        }
+    }
     try {
         Clear-RecycleBin -Force -ErrorAction Stop
-        Write-Log " - Recycle Bin : EMPTIED" "Green"
+        $script:TotalFreed += $rbSize
+        Write-Log " - Recycle Bin : EMPTIED ($([math]::Round($rbSize / 1MB, 2)) MB freed)" "Green"
     } catch {
         Write-Log " - Recycle Bin : Already empty or error" "Yellow"
     }
